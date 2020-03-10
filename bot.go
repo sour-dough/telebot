@@ -35,10 +35,11 @@ func NewBot(pref Settings) (*Bot, error) {
 		Updates: make(chan Update, pref.Updates),
 		Poller:  pref.Poller,
 
-		handlers: make(map[string]interface{}),
-		stop:     make(chan struct{}),
-		reporter: pref.Reporter,
-		client:   client,
+		handleCommandsForOthers: pref.HandleCommandsForOthers,
+		handlers:                make(map[string]interface{}),
+		stop:                    make(chan struct{}),
+		reporter:                pref.Reporter,
+		client:                  client,
 	}
 
 	user, err := bot.getMe()
@@ -58,10 +59,11 @@ type Bot struct {
 	Updates chan Update
 	Poller  Poller
 
-	handlers map[string]interface{}
-	reporter func(error)
-	stop     chan struct{}
-	client   *http.Client
+	handlers                map[string]interface{}
+	reporter                func(error)
+	stop                    chan struct{}
+	client                  *http.Client
+	handleCommandsForOthers bool
 }
 
 // Settings represents a utility struct for passing certain
@@ -78,6 +80,10 @@ type Settings struct {
 
 	// Poller is the provider of Updates.
 	Poller Poller
+
+	// HandleCommandsForOthers should be true iff this bot should handle commands
+	// addressed to other bots, i.e. /command@otherBot messages
+	HandleCommandsForOthers bool
 
 	// Reporter is a callback function that will get called
 	// on any panics recovered from endpoint handlers.
@@ -202,7 +208,11 @@ func (b *Bot) incomingUpdate(upd *Update) {
 				m.Payload = match[0][5]
 
 				if botName != "" && !strings.EqualFold(b.Me.Username, botName) {
-					return
+					if b.handleCommandsForOthers {
+						command += "@" + botName
+					} else {
+						return
+					}
 				}
 
 				if b.handle(command, m) {
