@@ -1,4 +1,4 @@
-module github.com/sour-dough/telebot
+module github.com/sour-dough/telebot/v2
 
 go 1.11
 
